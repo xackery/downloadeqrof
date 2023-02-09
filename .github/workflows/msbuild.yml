@@ -39,4 +39,4 @@ jobs:
         prerelease: false
         title: "Latest Release"
         files: |
-          bin\Release\downloadeqrof.exe
+          D:\a\downloadeqrof\downloadeqrof\downloadeqrof\bin\Release\downloadeqrof.exe
