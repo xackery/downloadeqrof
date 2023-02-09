@@ -39,4 +39,4 @@ jobs:
         prerelease: false
         title: "Latest Release"
         files: |
-          launcher\bin\Release\downloadeqrof.exe
+          D:\a\downloadeqrof\downloadeqrof\launcher\bin\Release\downloadeqrof.exe
