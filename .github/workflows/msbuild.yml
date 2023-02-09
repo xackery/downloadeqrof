@@ -9,7 +9,7 @@ on:
 env:
   # Path to the solution file relative to the root of the project.
   SOLUTION_FILE_PATH: .
-  VERSION: 1.0.0.1
+  VERSION: 1.0.0.2
   BUILD_CONFIGURATION: Release
 
 jobs:
@@ -39,4 +39,4 @@ jobs:
         prerelease: false
         title: "Latest Release"
         files: |
-          obj\Release\downloadeqrof.exe
+          bin\Release\downloadeqrof.exe
