@@ -262,21 +262,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Content\Database.cs" />
-    <Compile Include="Content\Server.cs" />
-    <Compile Include="Config\Config.cs" />
+    <Compile Include="Content\Download.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Manage\SQL.cs" />
-    <Compile Include="Manage\QueryServ.cs" />
-    <Compile Include="Manage\SharedMemory.cs" />
-    <Compile Include="Manage\World.cs" />
-    <Compile Include="Manage\UCS.cs" />
-    <Compile Include="Manage\Zones.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Status.cs" />

@@ -16,17 +16,8 @@ namespace ROF_Downloader
 
     enum StatusType
     {
-        Server, // checkup section for server binaries prep work
+        Download, // Download status
         StatusBar, // controls the bottom status bar text
-        SQL, // manage section used for sql status text
-        Zone, // manage section used for zone status text
-        World, // manage section used for world status text
-        UCS, // manage section used for ucs status text
-        QueryServ, // manage section used for queryServ status text
-        SharedMemory, // manage section used for sharedMemory status text
-        Database, // checkup section for database prep work
-        Quest,
-        Map,
     }
 
     /// <summary>
@@ -57,19 +48,12 @@ namespace ROF_Downloader
         public static void InitLog() 
         {
             mux.WaitOne();
-            using (var logw = File.Create("fippy.log"))
+            using (var logw = File.Create("downloadeqrof.log"))
             {
                 string dirName = new DirectoryInfo($"{Application.StartupPath}").Name;
-                string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO Fippy Darklauncher v{Assembly.GetEntryAssembly().GetName().Version} ({dirName} Folder)\n";
+                string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO Download EQ RoF v{Assembly.GetEntryAssembly().GetName().Version} ({dirName} Folder)\n";
                 logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
                 logw.Flush();                               
-            }
-
-            if (!File.Exists("fippy_event.log"))
-            {
-                using (var logw = File.Create("fippy_event.log"))
-                {
-                }
             }
             mux.ReleaseMutex();
         }
@@ -79,7 +63,7 @@ namespace ROF_Downloader
             mux.WaitOne();
             try
             {
-                using (var logw = File.Open("fippy.log", FileMode.Append))
+                using (var logw = File.Open("downloadeqrof.log", FileMode.Append))
                 {
                     string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO {message}\n";
                     logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
@@ -93,30 +77,6 @@ namespace ROF_Downloader
             mux.ReleaseMutex();
         }
 
-        public static void LogEvent(string message)
-        {
-            mux.WaitOne();
-            try
-            {
-                using (var logw = File.Open("fippy_event.log", FileMode.Append))
-                {
-                    string rawMessage = $"-----------------------------\n";
-                    rawMessage += $"CurrentEvent: {currentEvent}\n";
-                    rawMessage += $"Scope: {scope}\n";
-                    rawMessage += $"Message: {message}\n";
-                    rawMessage += $"Date: {DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")}\n";
-                    rawMessage += $"LastEvent: {lastEvent}\n";
-                    logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
-                    logw.Flush();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to write to log: {ex.Message}");
-            }
-            Console.WriteLine(message);
-            mux.ReleaseMutex();
-        }
 
         public static Status Get(StatusType name)
         {
@@ -223,33 +183,7 @@ namespace ROF_Downloader
             {
                 checks[name] = new Status();
             }
-
-            checks[name].Text = value;
-            mux.ReleaseMutex();
-        }
-
-
-        public static void SetIsEnabled(StatusType name, bool value)
-        {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
-            {
-                checks[name] = new Status();
-            }
-
-            checks[name].IsEnabled = value;
-            mux.ReleaseMutex();
-        }
-
-        public static void SubscribeIsEnabled(StatusType name, EventHandler<bool> f)
-        {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
-            {
-                checks[name] = new Status();
-            }
-            Status status = checks[name];
-            status.IsEnabledChange += f;
+            if (checks[name].Text != value) checks[name].Text = value;
             mux.ReleaseMutex();
         }
 
@@ -381,10 +315,6 @@ namespace ROF_Downloader
         /// </summary>
         internal class Status
         {
-            bool isLocked;
-            public bool IsEnabled { get { return isLocked; } set { isLocked = value; IsEnabledChange?.BeginInvoke(this, value, null, null); } }
-            public event EventHandler<bool> IsEnabledChange;
-
             string text;
             public string Text { get { return text; } set { text = value; TextChange?.BeginInvoke(this, value, null, null); } }
             public event EventHandler<string> TextChange;
