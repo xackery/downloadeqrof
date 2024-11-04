@@ -14,6 +14,8 @@ using YamlDotNet.Core.Tokens;
 namespace ROF_Downloader
 {
 
+
+
     enum StatusType
     {
         Download, // Download status
@@ -25,7 +27,8 @@ namespace ROF_Downloader
     /// </summary>
     internal class StatusLibrary
     {        
-        readonly static Mutex mux = new Mutex();
+        private static readonly object mux = new object();
+        private static readonly object uiMux = new object();
 
         readonly static Dictionary<StatusType, Status> checks = new Dictionary<StatusType, Status>();
 
@@ -47,57 +50,62 @@ namespace ROF_Downloader
 
         public static void InitLog() 
         {
-            mux.WaitOne();
-            using (var logw = File.Create("downloadeqrof.log"))
+            lock (mux)
             {
-                string dirName = new DirectoryInfo($"{Application.StartupPath}").Name;
-                string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO Download EQ RoF v{Assembly.GetEntryAssembly().GetName().Version} ({dirName} Folder)\n";
-                logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
-                logw.Flush();                               
-            }
-            mux.ReleaseMutex();
-        }
-
-        public static void Log(string message)
-        {   
-            mux.WaitOne();
-            try
-            {
-                using (var logw = File.Open("downloadeqrof.log", FileMode.Append))
+                using (var logw = File.Create("downloadeqrof.log"))
                 {
-                    string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO {message}\n";
+                    string dirName = new DirectoryInfo($"{Application.StartupPath}").Name;
+                    string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO Download EQ RoF v{Assembly.GetEntryAssembly().GetName().Version} ({dirName} Folder)\n";
                     logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
                     logw.Flush();
                 }
-            } catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to write to log: {ex.Message}");
             }
-            Console.WriteLine(message);
-            mux.ReleaseMutex();
+        }
+
+        public static void Log(string message)
+        {
+            lock (mux)
+            {
+                try
+                {
+                    using (var logw = File.Open("downloadeqrof.log", FileMode.Append))
+                    {
+                        string rawMessage = $"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.ff")} INFO {message}\n";
+                        logw.Write(Encoding.ASCII.GetBytes(rawMessage), 0, rawMessage.Length);
+                        logw.Flush();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to write to log: {ex.Message}");
+                }
+                Console.WriteLine(message);
+            }
         }
 
 
         public static Status Get(StatusType name)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                return checks[name];
             }
-            mux.ReleaseMutex();
-            return checks[name];
         }
 
         public static void Add(StatusType name, Status value)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                checks[name] = value;
             }
-            checks[name] = value;
-            mux.ReleaseMutex();
         }
 
         /// <summary>
@@ -105,14 +113,14 @@ namespace ROF_Downloader
         /// </summary>
         public static void LockUI()
         {
-            mux.WaitOne();
-            if (cancelTokenSource == null)
+            lock (uiMux)
             {
-                cancelTokenSource = new CancellationTokenSource();
-                mux.ReleaseMutex();
-                return;
+                if (cancelTokenSource == null)
+                {
+                    cancelTokenSource = new CancellationTokenSource();
+                    return;
+                }
             }
-            mux.ReleaseMutex();
         }
 
         /// <summary>
@@ -120,30 +128,33 @@ namespace ROF_Downloader
         /// </summary>
         public static void UnlockUI()
         {
-            mux.WaitOne();
-            StatusLibrary.Log("UnlockUI called");
-            if (cancelTokenSource != null)
+            lock (uiMux)
             {
-                cancelTokenSource.Cancel();
+                StatusLibrary.Log("UnlockUI called");
+                if (cancelTokenSource != null)
+                {
+                    cancelTokenSource.Cancel();
+                }
+                cancelTokenSource = new CancellationTokenSource();
+                SetProgress(100);                
             }
-            cancelTokenSource = new CancellationTokenSource();
-            SetProgress(100);
-            mux.ReleaseMutex();
         }
 
         public static void SetEvent(string name)
         {
-            mux.WaitOne();
-            lastEvent = currentEvent;
-            currentEvent = name;
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                lastEvent = currentEvent;
+                currentEvent = name;
+            }
         }
 
         public static void SetScope(string name)
         {
-            mux.WaitOne();
-            scope = name;
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                scope = name;
+            }
         }
 
         /// <summary>
@@ -153,161 +164,184 @@ namespace ROF_Downloader
         {
             if (cancelTokenSource == null)
             {
-                mux.WaitOne();
-                cancelTokenSource = new CancellationTokenSource();
-                mux.ReleaseMutex();
+                lock (mux)
+                {
+                    cancelTokenSource = new CancellationTokenSource();
+                }
             }
             return cancelTokenSource.Token;
+        }
+
+        public static void Cancel()
+        {
+            if (cancelTokenSource == null)
+            {
+                return;
+            }
+            cancelTokenSource.Cancel();
         }
 
 
         public static bool IsFixNeeded(StatusType name)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                Status status = checks[name];
+                bool isFixNeeded = status.IsFixNeeded;
+                return isFixNeeded;
             }
-            Status status = checks[name];
-            bool isFixNeeded = status.IsFixNeeded;
-            
-            mux.ReleaseMutex();
-            return isFixNeeded;
         }
 
         public static void SetStatusBar(string value)
         {
-            StatusType name = StatusType.StatusBar;
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (uiMux)
             {
-                checks[name] = new Status();
+                StatusType name = StatusType.StatusBar;
+
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                if (checks[name].Text != value) checks[name].Text = value;
             }
-            if (checks[name].Text != value) checks[name].Text = value;
-            mux.ReleaseMutex();
         }
 
         public static void SetIsFixNeeded(StatusType name, bool value)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
-            }
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
 
-            checks[name].IsFixNeeded = value;
-            mux.ReleaseMutex();
+                checks[name].IsFixNeeded = value;
+            }
         }
 
         public static void SubscribeIsFixNeeded(StatusType name, EventHandler<bool> f)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                Status status = checks[name];
+                status.IsFixNeededChange += f;
             }
-            Status status = checks[name];
-            status.IsFixNeededChange += f;
-            mux.ReleaseMutex();
         }
 
         public static string Text(StatusType name)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                string value = checks[name].Text;
+                return value;
             }
-            string value = checks[name].Text;
-            mux.ReleaseMutex();
-            return value;
         }
 
         public static void SetText(StatusType name, string value)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();
-            }
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
 
-            checks[name].Text = value;
-            mux.ReleaseMutex();
+                checks[name].Text = value;
+            }
         }
 
         public static void SubscribeText(StatusType name, EventHandler<string> f)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (mux)
             {
-                checks[name] = new Status();                
+                if (!checks.ContainsKey(name))
+                {
+                    checks[name] = new Status();
+                }
+                Status status = checks[name];
+                status.TextChange += f;
             }
-            Status status = checks[name];
-            status.TextChange += f;
-            mux.ReleaseMutex();
         }
 
         public static int Progress()
         {
-            mux.WaitOne();
-            int value = progressValue;
-            mux.ReleaseMutex();
-            return value;
+            lock (uiMux)
+            {
+                int value = progressValue;
+
+                return value;
+            }
         }
 
         public static void SetProgress(int value)
         {
-            mux.WaitOne();
-            progressValue = value;
-            progressChange?.BeginInvoke(value, null, null);
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                progressValue = value;
+                progressChange?.BeginInvoke(value, null, null);
+            }
         }
 
         public static void SubscribeProgress(ProgressHandler f)
         {
-            mux.WaitOne();
-            progressChange += f;
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                progressChange += f;
+            }
         }
 
         public static void SetDescription(string value)
         {
-            mux.WaitOne();
-            descriptionChange?.BeginInvoke(value, null, null);
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                descriptionChange?.BeginInvoke(value, null, null);
+            }
         }
 
         public static void SubscribeDescription(DescriptionHandler f)
         {
-            mux.WaitOne();
-            descriptionChange += f;
-            mux.ReleaseMutex();
+            lock (uiMux)
+            {
+                descriptionChange += f;
+            }
         }
 
         public static string Description(StatusType name)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (uiMux)
             {
-                mux.ReleaseMutex();
-                throw new System.Exception($"Status get description for {name} not found in dictionary");
+                if (!checks.ContainsKey(name))
+                {
+                    throw new System.Exception($"Status get description for {name} not found in dictionary");
+                }
+                string value = checks[name].Description;
+                return value;
             }
-            string value = checks[name].Description;
-            mux.ReleaseMutex();
-            return value;
         }
 
         public static void SetDescription(StatusType name, string value)
         {
-            mux.WaitOne();
-            if (!checks.ContainsKey(name))
+            lock (uiMux)
             {
-                mux.ReleaseMutex();
-                throw new System.Exception($"Status set description for {name} not found in dictionary");
-            }
+                if (!checks.ContainsKey(name))
+                {
+                    throw new System.Exception($"Status set description for {name} not found in dictionary");
+                }
 
-            checks[name].Description = value;
-            mux.ReleaseMutex();
+                checks[name].Description = value;
+            }
         }
 
         /// <summary>

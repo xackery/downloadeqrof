@@ -30,7 +30,7 @@ namespace ROF_Downloader
         {
             string result;
             StatusLibrary.SetProgress(startProgress);
-            string path = $"{Application.StartupPath}\\{outDir}\\{fileName}";
+            string path = $"{outDir}\\{fileName}";
             StatusLibrary.SetScope($"Downloading {source} to {path}");
             
             string outFullDir = path.Substring(0, path.LastIndexOf("\\"));
@@ -52,6 +52,7 @@ namespace ROF_Downloader
                 WebClient client = new WebClient();
                 client.Encoding = Encoding.UTF8;
                 StatusLibrary.CancelToken().Register(client.CancelAsync);
+                StatusLibrary.CancelToken().ThrowIfCancellationRequested();
                 client.DownloadProgressChanged += (object sender, DownloadProgressChangedEventArgs e) => {
                     StatusLibrary.SetProgress(startProgress + (int)((endProgress - startProgress) * (float)((float)e.ProgressPercentage / (float)100)));
                 };
@@ -81,7 +82,7 @@ namespace ROF_Downloader
         public static async Task<int> Extract(int startProgress, int endProgress, string srcDir, string fileName, string outDir, string targetCheckPath, int sizeMB)
         {
             StatusLibrary.SetProgress(startProgress);
-            string srcPath = $"{Application.StartupPath}\\{srcDir}\\{fileName}";
+            string srcPath = $"{srcDir}\\{fileName}";
 
             try
             {
@@ -93,10 +94,10 @@ namespace ROF_Downloader
                 }
                 StatusLibrary.SetScope($"Extracting {fileName} ({sizeMB} MB) to {outDir}...");
                 //StatusLibrary.SetStatusBar($"Extracting {fileName} ({sizeMB} MB) to {outDir}...");
-                if (!Directory.Exists($"{Application.StartupPath}\\{outDir}"))
+                if (!Directory.Exists($"{outDir}"))
                 {
-                    StatusLibrary.Log($"{Application.StartupPath}\\{outDir} doesn't exist, creating it");
-                    Directory.CreateDirectory($"{Application.StartupPath}\\{outDir}");
+                    StatusLibrary.Log($"{outDir} doesn't exist, creating it");
+                    Directory.CreateDirectory($"{outDir}");
                 }
 
                 using (ZipArchive archive = ZipFile.OpenRead(srcPath))
@@ -135,7 +136,7 @@ namespace ROF_Downloader
                         {
                             continue;
                         }
-                        string outPath = $"{Application.StartupPath}\\{outDir}\\{zipPath}";
+                        string outPath = $"{outDir}\\{zipPath}";
                         StatusLibrary.SetScope($"Extracting {zipPath} to {outPath}");
                         string zipDir = outPath.Substring(0, outPath.LastIndexOf("\\"));
                         if (!Directory.Exists(zipDir))
@@ -155,8 +156,11 @@ namespace ROF_Downloader
                         }
                         using (Stream zipStream = entry.Open())
                         {
-                            FileStream fileStream = File.Create(outPath);
-                            await zipStream.CopyToAsync(fileStream);
+                            using (FileStream fileStream = File.Create(outPath))
+                            {
+
+                               await zipStream.CopyToAsync(fileStream);
+                            }
                         }
                     }
                 }
@@ -167,6 +171,10 @@ namespace ROF_Downloader
                 StatusLibrary.SetStatusBar(result);
                 MessageBox.Show(result, $"Extract {fileName}", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return -1;
+            }
+            finally
+            {
+                
             }
             StatusLibrary.SetStatusBar($"Extracted {fileName} successfully");
             StatusLibrary.SetProgress(endProgress);

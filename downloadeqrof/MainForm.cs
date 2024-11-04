@@ -55,6 +55,12 @@ namespace ROF_Downloader
                 ChangeTheme(this.Controls, true);
             }
 
+            lblIntro.Text = "This program will download the Rain of Fear 2 client for you from Steam.\n\n" +
+                "Please enter your Steam username and password.\n" +
+                "If you have Steam Guard enabled, you will be prompted to enter the code.\n" +
+                "Please note that this program will not store your username or password.\n" +
+                "Use at your own risk.\n";
+
             StatusType context;
 
             context = StatusType.StatusBar;
@@ -64,6 +70,7 @@ namespace ROF_Downloader
                 StatusLibrary.Log($"StatusBar: {value}");
                 if (value == "Steam Guard!")
                 {
+                    btnSteamGuard.Focus();
                     grpSteamGuard.Visible = true;                    
                     lblDescription.Visible = false;
                 }
@@ -243,16 +250,74 @@ namespace ROF_Downloader
 
         private void btnDownload_Click(object sender, EventArgs e)
         {
+            if (btnDownload.Text == "Cancel")
+            {
+                StatusLibrary.Cancel();
+                StatusLibrary.SetStatusBar("Cancelled");
+                return;
+            }
+            if (!validatePath())
+            {
+                return;
+            }
+
+            lblIntro.Visible = false;
             lblDescription.Visible = true;
+            txtPassword.Enabled = false;
+            txtPath.Enabled = false;
+            txtUsername.Enabled = false;
+            btnBrowse.Enabled = false;
+            btnDownload.Text = "Cancel";
             btnDownload.Visible = false;
             Task.Run(async () =>
             {
                 StatusLibrary.LockUI();
-                await Download.Start(txtUsername.Text, txtPassword.Text);
+                await Download.Start(txtUsername.Text, txtPassword.Text, txtPath.Text);
                 StatusLibrary.UnlockUI();
+                Invoke((MethodInvoker)delegate
+                {
+                    lblIntro.Visible = true;
+                    lblDescription.Visible = false;
+                    txtPassword.Enabled = true;
+                    txtUsername.Enabled = true;
+                    txtPath.Enabled = true;
+                    btnDownload.Text = "Download";
+                    btnBrowse.Enabled = true;
+                    btnDownload.Visible = true;
+                    Debug.Print("Release UI");
+                });
+
             });
-            
+           
         }
+
+        private bool validatePath()
+        {
+            var path = txtPath.Text;
+            if (path.Length == 0)
+            {
+                MessageBox.Show("Please enter a path", "Path", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            if (path == null)
+            {
+                MessageBox.Show("Please enter a path", "Path", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+            if (!Directory.Exists(path))
+            {
+                MessageBox.Show($"The path {path} does not exist", "Path", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+            if (File.Exists(path))
+            {
+                MessageBox.Show($"The path {path} is a file, not a folder", "Path", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+            return true;
+        }
+
 
         private void btnSteamGuard_Click(object sender, EventArgs e)
         {
@@ -263,7 +328,39 @@ namespace ROF_Downloader
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            StatusLibrary.Cancel();
             Download.Kill();
+        }
+
+        private void btnBrowse_Click(object sender, EventArgs e)
+        {
+            if (diaFolderBrowse.SelectedPath == "")
+            {
+
+                diaFolderBrowse.SelectedPath =  System.IO.Path.GetDirectoryName(Application.ExecutablePath);
+            }
+
+            if (txtPath.Text != "")
+            {
+                diaFolderBrowse.SelectedPath = txtPath.Text;
+            }
+
+
+            var result = diaFolderBrowse.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                var path = diaFolderBrowse.SelectedPath;
+                if (path == null)
+                {
+                    return;
+                }
+                txtPath.Text = path;
+                if (!validatePath())
+                {
+                    txtPath.Text = "";
+                    return;
+                }
+            }
         }
     }
 }
