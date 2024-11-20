@@ -1,4 +1,4 @@
-﻿using AutoUpdaterDotNET;
+using AutoUpdaterDotNET;
 using Microsoft.Win32;
 using MySqlConnector;
 using System;
@@ -34,11 +34,11 @@ namespace ROF_Downloader
         {
             var identity = WindowsIdentity.GetCurrent();
             var principal = new WindowsPrincipal(identity);
-            if (principal.IsInRole(WindowsBuiltInRole.Administrator))
-            {
-                MessageBox.Show("Fippy does not need admin access.\nRestart fippy without running as an Administrator.","Admin Mode Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Application.Exit();
-            }
+            //if (principal.IsInRole(WindowsBuiltInRole.Administrator))
+            //{
+            //    MessageBox.Show("Fippy does not need admin access.\nRestart fippy without running as an Administrator.","Admin Mode Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
+             //   Application.Exit();
+            //}
             
             StatusLibrary.InitLog();
             StatusLibrary.SetEvent("Initialization");
